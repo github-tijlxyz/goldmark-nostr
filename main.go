@@ -29,6 +29,9 @@ func NewNostrParser(opts ...NostrOption) parser.InlineParser {
 	p := &nostrParser{
 		NostrConfig: NostrConfig{},
 	}
+	for _, o := range opts {
+		o.SetNostrOption(&p.NostrConfig)
+	}
 	return p
 }
 
@@ -109,6 +112,7 @@ func (s *nostrParser) Parse(parent ast.Node, block text.Reader, pc parser.Contex
 	// Create a new node for the "nostr:" link
 	linkText := ast.NewTextSegment(text.NewSegment(start+6, start+end))
 	link := ast.NewLink()
+
 	link.Destination = []byte(fmt.Sprintf(s.NostrConfig.NostrLink, string(nostrID)))
 
 	if s.NostrConfig.Strict {
