@@ -76,22 +76,13 @@ func (s *nostrParser) Parse(parent ast.Node, block text.Reader, pc parser.Contex
 	linkText := ast.NewTextSegment(text.NewSegment(start+6, start+end))
 	link := ast.NewLink()
 	link.Destination = []byte("nostr:" + string(nostrID))
+
+	// TODO: maybe make this mess as a optional option
+	link.SetAttribute([]byte("rel"), "noopener noreferrer")
+	link.SetAttribute([]byte("target"), "_blank")
+	link.SetAttribute([]byte("referrerpolicy"), "no-referrer")
+
 	link.AppendChild(link, linkText)
-
-	// Create the HTML anchor element
-
-	/*
-		htmlLink := &ast.HTMLTag{
-			TagName: []byte("a"),
-			Attributes: []ast.HTMLTagAttribute{
-				{
-					Key:   []byte("href"),
-					Value: []byte("nostr:" + string(nostrID)),
-				},
-			},
-			Inner: []ast.Node{linkText},
-		}
-	*/
 
 	// Advance the reader position by the length of the processed string
 	block.Advance(consumes + end)
