@@ -2,6 +2,7 @@ package extension
 
 import (
 	"bytes"
+	"fmt"
 
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/ast"
@@ -11,10 +12,13 @@ import (
 )
 
 type NostrConfig struct {
+	NostrLink string
+	Strict    bool
 }
 
 type NostrOption interface {
 	parser.Option
+	SetNostrOption(*NostrConfig)
 }
 
 type nostrParser struct {
@@ -28,14 +32,44 @@ func NewNostrParser(opts ...NostrOption) parser.InlineParser {
 	return p
 }
 
+func WithStrict() NostrOption {
+	return &withStrict{
+		value: true,
+	}
+}
+
+func WithNostrLink(link string) NostrOption {
+	return &withNostrLink{
+		value: link,
+	}
+}
+
+type withNostrLink struct {
+	value string
+}
+
+func (o *withNostrLink) SetParserOption(c *parser.Config) {
+	c.Options["NostrLink"] = o.value
+}
+func (o *withNostrLink) SetNostrOption(p *NostrConfig) {
+	p.NostrLink = o.value
+}
+
+type withStrict struct {
+	value bool
+}
+
+func (o *withStrict) SetParserOption(c *parser.Config) {
+	c.Options["Strict"] = o.value
+}
+func (o *withStrict) SetNostrOption(p *NostrConfig) {
+	p.Strict = o.value
+}
+
 func (s *nostrParser) Trigger() []byte {
 	// ' ' indicates any white spaces and a line head
 	return []byte{' ', '*', '_', '~', '('}
 }
-
-var (
-	protoNostr = []byte("http:")
-)
 
 func (s *nostrParser) Parse(parent ast.Node, block text.Reader, pc parser.Context) ast.Node {
 	if pc.IsInLinkLabel() {
@@ -75,12 +109,13 @@ func (s *nostrParser) Parse(parent ast.Node, block text.Reader, pc parser.Contex
 	// Create a new node for the "nostr:" link
 	linkText := ast.NewTextSegment(text.NewSegment(start+6, start+end))
 	link := ast.NewLink()
-	link.Destination = []byte("nostr:" + string(nostrID))
+	link.Destination = []byte(fmt.Sprintf(s.NostrConfig.NostrLink, string(nostrID)))
 
-	// TODO: maybe make this mess as a optional option
-	link.SetAttribute([]byte("rel"), "noopener noreferrer")
-	link.SetAttribute([]byte("target"), "_blank")
-	link.SetAttribute([]byte("referrerpolicy"), "no-referrer")
+	if s.NostrConfig.Strict {
+		link.SetAttribute([]byte("rel"), "noopener noreferrer")
+		link.SetAttribute([]byte("target"), "_blank")
+		link.SetAttribute([]byte("referrerpolicy"), "no-referrer")
+	}
 
 	link.AppendChild(link, linkText)
 
@@ -98,12 +133,9 @@ type nostr struct {
 	options []NostrOption
 }
 
-// Linkify is an extension that allow you to parse text that seems like a URL.
 var Nostr = &nostr{}
 
-// NewLinkify creates a new [goldmark.Extender] that
-// allow you to parse text that seems like a URL.
-func NewNostr(opts ...NostrOption) goldmark.Extender {
+func New(opts ...NostrOption) goldmark.Extender {
 	return &nostr{
 		options: opts,
 	}
